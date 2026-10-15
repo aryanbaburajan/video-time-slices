@@ -1,0 +1,8 @@
+{
+  "name": "video-time-slices",
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
+  "dependencies": { "@fontsource/geist": "^5.2.6", "three": "^0.181.1" },
+  "devDependencies": { "vite": "^7.1.7" }
+}

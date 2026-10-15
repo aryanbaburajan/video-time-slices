@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="turn video into an interactive 3d volume. scrub through time, set a slice angle, and reveal motion across every frame." />
+    <meta name="theme-color" content="#101010" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="explore motion in 3d" />
+    <meta property="og:description" content="turn video into an interactive 3d volume. scrub through time, set a slice angle, and reveal motion across every frame." />
+    <meta property="og:image" content="/explore-motion-in-3d-preview.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1919" />
+    <meta property="og:image:height" content="1083" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="explore motion in 3d" />
+    <meta name="twitter:description" content="turn video into an interactive 3d volume. scrub through time, set a slice angle, and reveal motion across every frame." />
+    <meta name="twitter:image" content="/explore-motion-in-3d-preview.png" />
+    <title>explore motion in 3d</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <div id="scene"></div>
+      <aside class="panel">
+        <div class="video-sources">
+          <div class="demo-list" aria-label="Demo tracks">
+            <button class="demo-button is-active" type="button" data-demo="/sample-track-1.mp4" aria-pressed="true">Demo 1</button>
+            <button class="demo-button" type="button" data-demo="/sample-track-2.mp4" aria-pressed="false">Demo 2</button>
+            <button class="demo-button" type="button" data-demo="/sample-track-3.mp4" aria-pressed="false">Demo 3</button>
+            <button class="demo-button" type="button" data-demo="/sample-track-4.mp4" aria-pressed="false">Demo 4</button>
+          </div>
+          <div class="load-source">
+            <label class="file-button"><span>Upload video</span><input id="video-file" type="file" accept="video/*" /></label>
+            <output id="video-name" class="video-name">sample-track-1.mp4</output>
+          </div>
+        </div>
+        <p id="status" hidden>Choose a video to build its native-resolution volume.</p>
+        <div id="loading-meter" class="loading-meter" hidden aria-live="polite">
+          <div class="loading-label"><span id="loading-stage">Preparing volume</span><span id="loading-value">0%</span></div>
+          <div class="loading-track"><div id="loading-fill" class="loading-fill"></div></div>
+          <p id="loading-detail" class="loading-detail">Waiting for video…</p>
+        </div>
+        <div class="controls">
+          <label class="control"><span><span>Time</span><output id="time-seek-output">0:00.00</output></span><input id="time-seek" type="range" min="0" max="1" step="0.001" value="0" /></label>
+          <label class="control"><span><span>Slice angle</span><output id="angle-seek-output">0°</output></span><input id="angle-seek" type="range" min="-45" max="45" step="0.1" value="0" /></label>
+          <button id="play-slice" class="slice-play">Play slice</button>
+        </div>
+      </aside>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

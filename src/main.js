@@ -17,6 +17,7 @@ const loadingValue = document.querySelector('#loading-value');
 const loadingDetail = document.querySelector('#loading-detail');
 const sliceStorageKey = 'video-time-slices:plane';
 const cameraStorageKey = 'video-time-slices:camera';
+const defaultDemoUrl = 'https://raw.githubusercontent.com/aryanbaburajan/video-time-slices/main/public/sample-track-1.mp4';
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -262,6 +263,8 @@ async function buildVolume(source) {
   const { signal } = controller;
   video = document.createElement('video');
   const media = video;
+  // GitHub raw files are cross-origin; this keeps captured canvas frames readable.
+  video.crossOrigin = 'anonymous';
   video.muted = true;
   video.playsInline = true;
   videoObjectUrl = typeof source === 'string' ? null : URL.createObjectURL(source);
@@ -339,7 +342,7 @@ restoreCameraState();
 seekSlice();
 render();
 toggleSlicePlayback();
-buildVolume('/sample-track-1.mp4').catch(error => {
+buildVolume(defaultDemoUrl).catch(error => {
   if (error.name === 'AbortError') return;
   loadingMeter.hidden = true;
   status.textContent = `Could not load the included sample: ${error.message}`;

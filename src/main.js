@@ -33,7 +33,10 @@ let volumeWidth = 1.6;
 let volumeHeight = .9;
 volume.position.x = -.58;
 controls.target.copy(volume.position);
-camera.position.copy(volume.position).add(new THREE.Vector3(2, 2, -2));
+// A portrait viewport has a much narrower horizontal field of view, so start a
+// little farther back to keep the complete volume comfortably in frame.
+const initialCameraOffset = innerWidth <= 550 ? 4.2 : 2;
+camera.position.copy(volume.position).add(new THREE.Vector3(initialCameraOffset, initialCameraOffset, -initialCameraOffset));
 
 function persistCameraState() {
   try {

@@ -18,6 +18,10 @@ const loadingDetail = document.querySelector('#loading-detail');
 const sliceStorageKey = 'video-time-slices:plane';
 const cameraStorageKey = 'video-time-slices:camera';
 const defaultDemoUrl = 'https://raw.githubusercontent.com/aryanbaburajan/video-time-slices/main/public/sample-track-1.mp4';
+const isMobile = navigator.userAgentData?.mobile ?? /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
+const samplingProfile = isMobile
+  ? { maxWidth: 854, maxHeight: 480, framesPerSecond: 60 }
+  : { maxWidth: 1280, maxHeight: 720, framesPerSecond: 120 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -248,7 +252,8 @@ function disposeCurrentTrack() {
 }
 
 function getVolumeResolution(sourceWidth, sourceHeight) {
-  const scale = Math.min(1, 1920 / sourceWidth, 1080 / sourceHeight);
+  const { maxWidth, maxHeight } = samplingProfile;
+  const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
   return {
     width: Math.max(1, Math.round(sourceWidth * scale)),
     height: Math.max(1, Math.round(sourceHeight * scale))
@@ -275,7 +280,7 @@ async function buildVolume(source) {
   if (signal.aborted || media !== video) throw new DOMException('Video loading was cancelled.', 'AbortError');
   const sourceWidth = media.videoWidth;
   const sourceHeight = media.videoHeight;
-  const depth = Math.min(120, Math.max(24, Math.ceil(media.duration * 12)));
+  const depth = Math.max(1, Math.ceil(media.duration * samplingProfile.framesPerSecond));
   const { width, height } = getVolumeResolution(sourceWidth, sourceHeight);
   configureSeekers(media.duration);
   volumeHeight = .9;

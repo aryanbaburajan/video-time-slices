@@ -272,8 +272,7 @@ async function buildVolume(source) {
   const controller = new AbortController();
   loadController = controller;
   const { signal } = controller;
-  status.hidden = false;
-  status.textContent = 'Loading video…';
+  status.hidden = true;
   updateLoading(0, 'Loading video metadata…');
   video = document.createElement('video');
   const media = video;

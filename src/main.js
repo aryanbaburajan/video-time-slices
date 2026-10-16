@@ -301,7 +301,7 @@ async function buildVolume(source) {
   slice.geometry = new THREE.PlaneGeometry(volumeWidth, volumeHeight, 96, 54);
   sliceMaterial.uniforms.volumeSize.value.set(volumeWidth, volumeHeight, volumeDepth);
   updateSlice();
-  status.textContent = `Building ${width} × ${height} × ${depth} volume…`;
+  status.hidden = true;
   updateLoading(0, 'Preparing control samples…');
   const { pixels } = await captureFrames(media, width, height, depth, signal);
   if (signal.aborted || media !== video) throw new DOMException('Video loading was cancelled.', 'AbortError');
@@ -313,6 +313,7 @@ async function buildVolume(source) {
   texture3d.unpackAlignment = 1;
   texture3d.needsUpdate = true;
   sliceMaterial.uniforms.volumeTexture.value = texture3d;
+  status.hidden = false;
   status.textContent = `Ready · ${depth} samples · ${formatTime(media.duration)}`;
   finishLoading();
 }
@@ -327,6 +328,7 @@ document.querySelector('#video-file').addEventListener('change', async event => 
   try { await buildVolume(file); } catch (error) {
     if (error.name === 'AbortError') return;
     loadingMeter.hidden = true;
+    status.hidden = false;
     status.textContent = `Could not sample this video: ${error.message}`;
   }
 });
@@ -339,6 +341,7 @@ demoButtons.forEach(button => button.addEventListener('click', async () => {
   try { await buildVolume(button.dataset.demo); } catch (error) {
     if (error.name === 'AbortError') return;
     loadingMeter.hidden = true;
+    status.hidden = false;
     status.textContent = `Could not load this demo: ${error.message}`;
   }
 }));
@@ -360,5 +363,6 @@ toggleSlicePlayback();
 buildVolume(defaultDemoUrl).catch(error => {
   if (error.name === 'AbortError') return;
   loadingMeter.hidden = true;
+  status.hidden = false;
   status.textContent = `Could not load the included sample: ${error.message}`;
 });

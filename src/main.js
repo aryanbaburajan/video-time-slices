@@ -313,7 +313,7 @@ async function buildVolume(source) {
   texture3d.unpackAlignment = 1;
   texture3d.needsUpdate = true;
   sliceMaterial.uniforms.volumeTexture.value = texture3d;
-  status.textContent = `Ready: ${depth} samples across ${formatTime(media.duration)}. Move either edge to slice through time.`;
+  status.textContent = `Ready · ${depth} samples · ${formatTime(media.duration)}`;
   finishLoading();
 }
 

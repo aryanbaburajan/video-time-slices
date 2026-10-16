@@ -20,8 +20,8 @@ const cameraStorageKey = 'video-time-slices:camera';
 const defaultDemoUrl = 'https://raw.githubusercontent.com/aryanbaburajan/video-time-slices/main/public/sample-track-1.mp4';
 const isMobile = navigator.userAgentData?.mobile ?? /Android|webOS|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const samplingProfile = isMobile
-  ? { maxWidth: 854, maxHeight: 480, framesPerSecond: 60 }
-  : { maxWidth: 1280, maxHeight: 720, framesPerSecond: 120 };
+  ? { maxWidth: 854, maxHeight: 480, maxFrames: 60 }
+  : { maxWidth: 1280, maxHeight: 720, maxFrames: 120 };
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
@@ -190,12 +190,18 @@ playSliceButton.addEventListener('click', toggleSlicePlayback);
 function waitFor(media, event, signal) {
   return new Promise((resolve, reject) => {
     const onEvent = () => { cleanup(); resolve(); };
+    const onError = () => {
+      cleanup();
+      reject(media.error ?? new Error(`Video failed while waiting for ${event}.`));
+    };
     const onAbort = () => { cleanup(); reject(new DOMException('Video loading was cancelled.', 'AbortError')); };
     const cleanup = () => {
       media.removeEventListener(event, onEvent);
+      media.removeEventListener('error', onError);
       signal?.removeEventListener('abort', onAbort);
     };
     media.addEventListener(event, onEvent, { once: true });
+    media.addEventListener('error', onError, { once: true });
     signal?.addEventListener('abort', onAbort, { once: true });
     if (signal?.aborted) onAbort();
   });
@@ -266,12 +272,16 @@ async function buildVolume(source) {
   const controller = new AbortController();
   loadController = controller;
   const { signal } = controller;
+  status.hidden = false;
+  status.textContent = 'Loading video…';
+  updateLoading(0, 'Loading video metadata…');
   video = document.createElement('video');
   const media = video;
   // GitHub raw files are cross-origin; this keeps captured canvas frames readable.
   video.crossOrigin = 'anonymous';
   video.muted = true;
   video.playsInline = true;
+  video.preload = 'auto';
   videoObjectUrl = typeof source === 'string' ? null : URL.createObjectURL(source);
   video.src = videoObjectUrl ?? source;
   videoName.textContent = typeof source === 'string' ? source.split('/').pop() : source.name;
@@ -280,7 +290,7 @@ async function buildVolume(source) {
   if (signal.aborted || media !== video) throw new DOMException('Video loading was cancelled.', 'AbortError');
   const sourceWidth = media.videoWidth;
   const sourceHeight = media.videoHeight;
-  const depth = Math.max(1, Math.ceil(media.duration * samplingProfile.framesPerSecond));
+  const depth = Math.min(samplingProfile.maxFrames, Math.max(24, Math.ceil(media.duration * 12)));
   const { width, height } = getVolumeResolution(sourceWidth, sourceHeight);
   configureSeekers(media.duration);
   volumeHeight = .9;

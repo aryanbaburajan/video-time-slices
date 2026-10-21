@@ -26,10 +26,11 @@ const samplingProfile = isMobile
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 sceneHost.append(renderer.domElement);
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x101010);
-const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, .01, 100);
+scene.background = new THREE.Color(0x030506);
+const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, .01, 100);
 const controls = new OrbitControls(camera, renderer.domElement);
 const volume = new THREE.Group();
 scene.add(volume);
@@ -40,8 +41,8 @@ volume.position.x = -.58;
 controls.target.copy(volume.position);
 // A portrait viewport has a much narrower horizontal field of view, so start a
 // little farther back to keep the complete volume comfortably in frame.
-const initialCameraOffset = innerWidth <= 550 ? 4.2 : 2;
-camera.position.copy(volume.position).add(new THREE.Vector3(initialCameraOffset, initialCameraOffset, -initialCameraOffset));
+const initialCameraOffset = innerWidth <= 550 ? 4.2 : 2.18;
+camera.position.copy(volume.position).add(new THREE.Vector3(initialCameraOffset * 1.15, initialCameraOffset * .82, -initialCameraOffset));
 
 function persistCameraState() {
   try {
@@ -66,11 +67,69 @@ function restoreCameraState() {
 
 controls.addEventListener('change', persistCameraState);
 
-const outline = new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.BoxGeometry(volumeWidth, volumeHeight, volumeDepth)),
-  new THREE.LineBasicMaterial({ color: 0xf5f5f0 })
-);
-volume.add(outline);
+const volumeMaterial = new THREE.ShaderMaterial({
+  transparent: true,
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  toneMapped: false,
+  uniforms: {
+    volumeTexture: { value: null },
+    volumeSize: { value: new THREE.Vector3(volumeWidth, volumeHeight, volumeDepth) },
+    opacity: { value: .42 }
+  },
+  vertexShader: `
+    uniform vec3 volumeSize;
+    varying vec3 vVolumeCoord;
+    void main() {
+      vVolumeCoord = vec3(
+        position.x / volumeSize.x + .5,
+        .5 - position.y / volumeSize.y,
+        position.z / volumeSize.z + .5
+      );
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    precision highp float;
+    precision highp sampler3D;
+    uniform sampler3D volumeTexture;
+    uniform float opacity;
+    varying vec3 vVolumeCoord;
+    void main() {
+      vec3 color = texture(volumeTexture, clamp(vVolumeCoord, vec3(0.0), vec3(1.0))).rgb;
+      gl_FragColor = vec4(color, opacity);
+    }`
+});
+const volumeRenderer = new THREE.Group();
+const volumeFaces = [];
+
+function addVolumeFace(width, height, rotate, translate) {
+  const geometry = new THREE.PlaneGeometry(width, height);
+  if (rotate.x) geometry.rotateX(rotate.x);
+  if (rotate.y) geometry.rotateY(rotate.y);
+  geometry.translate(...translate);
+  const face = new THREE.Mesh(geometry, volumeMaterial);
+  volumeFaces.push(face);
+  volumeRenderer.add(face);
+}
+
+function rebuildVolumeFaces() {
+  volumeFaces.forEach(face => {
+    face.geometry.dispose();
+    volumeRenderer.remove(face);
+  });
+  volumeFaces.length = 0;
+  // The visible front (negative Z, where the default camera begins) is frame 0;
+  // the rear is the final frame. The remaining faces are temporal edge strips.
+  addVolumeFace(volumeWidth, volumeHeight, { x: 0, y: 0 }, [0, 0, volumeDepth / 2]);
+  addVolumeFace(volumeWidth, volumeHeight, { x: 0, y: Math.PI }, [0, 0, -volumeDepth / 2]);
+  addVolumeFace(volumeDepth, volumeHeight, { x: 0, y: Math.PI / 2 }, [volumeWidth / 2, 0, 0]);
+  addVolumeFace(volumeDepth, volumeHeight, { x: 0, y: -Math.PI / 2 }, [-volumeWidth / 2, 0, 0]);
+  addVolumeFace(volumeWidth, volumeDepth, { x: -Math.PI / 2, y: 0 }, [0, volumeHeight / 2, 0]);
+  addVolumeFace(volumeWidth, volumeDepth, { x: Math.PI / 2, y: 0 }, [0, -volumeHeight / 2, 0]);
+}
+
+rebuildVolumeFaces();
+volume.add(volumeRenderer);
 
 let video;
 let videoObjectUrl;
@@ -83,9 +142,12 @@ let savedSliceSettings;
 const sliceMaterial = new THREE.ShaderMaterial({
   side: THREE.DoubleSide,
   toneMapped: false,
+  transparent: true,
+  depthWrite: false,
   uniforms: {
     volumeTexture: { value: null },
-    volumeSize: { value: new THREE.Vector3(volumeWidth, volumeHeight, volumeDepth) }
+    volumeSize: { value: new THREE.Vector3(volumeWidth, volumeHeight, volumeDepth) },
+    opacity: { value: .9 }
   },
   vertexShader: `
     uniform vec3 volumeSize;
@@ -98,14 +160,24 @@ const sliceMaterial = new THREE.ShaderMaterial({
     precision highp float;
     precision highp sampler3D;
     uniform sampler3D volumeTexture;
+    uniform float opacity;
     varying vec3 vVolumeCoord;
     void main() {
       vec4 pixel = texture(volumeTexture, clamp(vVolumeCoord, vec3(0.0), vec3(1.0)));
-      gl_FragColor = vec4(pixel.rgb, 1.0);
+      gl_FragColor = vec4(pixel.rgb, opacity);
     }`
 });
 const slice = new THREE.Mesh(new THREE.PlaneGeometry(volumeWidth, volumeHeight, 96, 54), sliceMaterial);
+slice.renderOrder = 1;
 volume.add(slice);
+
+const sliceFrameGeometry = new THREE.BufferGeometry();
+const sliceFrame = new THREE.Line(
+  sliceFrameGeometry,
+  new THREE.LineBasicMaterial({ color: 0xc0d6df, transparent: true, opacity: .58, depthWrite: false })
+);
+sliceFrame.renderOrder = 7;
+volume.add(sliceFrame);
 
 function updateSlice() {
   const absoluteTime = Number(timeSeekInput.value);
@@ -122,6 +194,15 @@ function updateSlice() {
   }
   positions.needsUpdate = true;
   slice.geometry.computeVertexNormals();
+  const leftZ = THREE.MathUtils.lerp(-volumeDepth / 2, volumeDepth / 2, leftTime);
+  const rightZ = THREE.MathUtils.lerp(-volumeDepth / 2, volumeDepth / 2, rightTime);
+  sliceFrameGeometry.setFromPoints([
+    new THREE.Vector3(-volumeWidth / 2, -volumeHeight / 2, leftZ),
+    new THREE.Vector3(volumeWidth / 2, -volumeHeight / 2, rightZ),
+    new THREE.Vector3(volumeWidth / 2, volumeHeight / 2, rightZ),
+    new THREE.Vector3(-volumeWidth / 2, volumeHeight / 2, leftZ),
+    new THREE.Vector3(-volumeWidth / 2, -volumeHeight / 2, leftZ)
+  ]);
 }
 
 function persistSliceSettings() {
@@ -255,6 +336,7 @@ function disposeCurrentTrack() {
   if (texture3d) texture3d.dispose();
   texture3d = null;
   sliceMaterial.uniforms.volumeTexture.value = null;
+  volumeMaterial.uniforms.volumeTexture.value = null;
 }
 
 function getVolumeResolution(sourceWidth, sourceHeight) {
@@ -294,11 +376,11 @@ async function buildVolume(source) {
   configureSeekers(media.duration);
   volumeHeight = .9;
   volumeWidth = volumeHeight * width / height;
-  outline.geometry.dispose();
-  outline.geometry = new THREE.EdgesGeometry(new THREE.BoxGeometry(volumeWidth, volumeHeight, volumeDepth));
+  rebuildVolumeFaces();
   slice.geometry.dispose();
   slice.geometry = new THREE.PlaneGeometry(volumeWidth, volumeHeight, 96, 54);
   sliceMaterial.uniforms.volumeSize.value.set(volumeWidth, volumeHeight, volumeDepth);
+  volumeMaterial.uniforms.volumeSize.value.set(volumeWidth, volumeHeight, volumeDepth);
   updateSlice();
   status.hidden = true;
   updateLoading(0, 'Preparing control samples…');
@@ -312,6 +394,7 @@ async function buildVolume(source) {
   texture3d.unpackAlignment = 1;
   texture3d.needsUpdate = true;
   sliceMaterial.uniforms.volumeTexture.value = texture3d;
+  volumeMaterial.uniforms.volumeTexture.value = texture3d;
   status.hidden = false;
   status.textContent = `Ready · ${depth} samples · ${formatTime(media.duration)}`;
   finishLoading();
